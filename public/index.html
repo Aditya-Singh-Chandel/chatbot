@@ -168,6 +168,30 @@
         }
       });
 
+      // Listen for previous messages history from the server
+      socket.on("previousMessages", (messages) => {
+        messages.forEach((msg) => {
+          let type = "other";
+          if (msg.sender === "System") {
+            type = "system";
+          } else if (msg.sender === username) {
+            type = "self";
+          }
+          appendMessage(msg.sender, msg.message, type);
+        });
+      });
+
+      // Listen for messages from the server
+      socket.on("chatMessage", (data) => {
+        // Avoid duplicating messages for the sender that are already appended locally
+        if (data.sender === username) return;
+        let type = "other";
+        if (data.sender === "System") {
+          type = "system";
+        }
+        appendMessage(data.sender, data.message, type);
+      });
+
       // Handle sending a chat message
       messageForm.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -178,17 +202,6 @@
           appendMessage("You", message, "self");
           messageInput.value = "";
         }
-      });
-
-      // Listen for messages from the server
-      socket.on("chatMessage", (data) => {
-        // Avoid duplicating messages for the sender
-        if (data.sender === username) return;
-        let type = "other";
-        if (data.sender === "System") {
-          type = "system";
-        }
-        appendMessage(data.sender, data.message, type);
       });
 
       // Append messages to the chat box
