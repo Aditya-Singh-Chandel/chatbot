@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Real-Time Chat App</title>
+    <!-- Bootstrap 4 CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <style>
+      body {
+        background: #f4f7f6;
+      }
+      /* Login container styling */
+      .login-container {
+        max-width: 500px;
+        margin: 100px auto;
+      }
+      .login-card {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        padding: 30px;
+        background: #fff;
+      }
+      /* Chat container styling */
+      .chat-container {
+        max-width: 800px;
+        margin: 50px auto;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .chat-header {
+        background: #007bff;
+        padding: 20px;
+        color: #fff;
+        text-align: center;
+      }
+      .chat-box {
+        height: 500px;
+        overflow-y: auto;
+        padding: 20px;
+        background: #e9ecef;
+      }
+      .chat-message {
+        margin-bottom: 15px;
+      }
+      .chat-message.self {
+        text-align: right;
+      }
+      .chat-message .message-content {
+        display: inline-block;
+        padding: 10px 15px;
+        border-radius: 20px;
+        max-width: 70%;
+      }
+      .chat-message.self .message-content {
+        background: #007bff;
+        color: #fff;
+      }
+      .chat-message.other .message-content {
+        background: #f1f0f0;
+        color: #333;
+      }
+      .chat-message.system .message-content {
+        background: transparent;
+        color: #888;
+        font-style: italic;
+      }
+      .chat-input {
+        padding: 15px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Login Section -->
+    <div class="login-container" id="login-container">
+      <div class="login-card">
+        <h2 class="text-center mb-4">Join Chat Room</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <input
+              type="text"
+              id="usernameInput"
+              class="form-control"
+              placeholder="Enter your username"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="text"
+              id="roomInput"
+              class="form-control"
+              placeholder="Enter room number"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            Join Chat
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Chat Section -->
+    <div class="chat-container d-none" id="chat-container">
+      <div class="chat-header">
+        <h3 id="roomName">Room:</h3>
+      </div>
+      <div class="chat-box" id="chat-box">
+        <!-- Chat messages will be appended here -->
+      </div>
+      <div class="chat-input">
+        <form id="message-form">
+          <div class="input-group">
+            <input
+              type="text"
+              id="messageInput"
+              class="form-control"
+              placeholder="Type your message..."
+              autocomplete="off"
+              required
+            />
+            <div class="input-group-append">
+              <button type="submit" class="btn btn-primary">Send</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Socket.io Client Library -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- jQuery and Bootstrap JS (optional for additional Bootstrap components) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const socket = io();
+
+      // Elements for Login and Chat
+      const loginContainer = document.getElementById("login-container");
+      const chatContainer = document.getElementById("chat-container");
+      const loginForm = document.getElementById("login-form");
+      const usernameInput = document.getElementById("usernameInput");
+      const roomInput = document.getElementById("roomInput");
+      const roomNameHeading = document.getElementById("roomName");
+      const chatBox = document.getElementById("chat-box");
+      const messageForm = document.getElementById("message-form");
+      const messageInput = document.getElementById("messageInput");
+
+      let username = "";
+      let room = "";
+
+      // Handle Login
+      loginForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        username = usernameInput.value.trim();
+        room = roomInput.value.trim();
+        if (username && room) {
+          socket.emit("joinRoom", { username, room });
+          loginContainer.classList.add("d-none");
+          chatContainer.classList.remove("d-none");
+          roomNameHeading.textContent = "Room: " + room;
+        }
+      });
+
+      // Handle sending a chat message
+      messageForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const message = messageInput.value.trim();
+        if (message) {
+          const data = { room, message, sender: username };
+          socket.emit("chatMessage", data);
+          appendMessage("You", message, "self");
+          messageInput.value = "";
+        }
+      });
+
+      // Listen for messages from the server
+      socket.on("chatMessage", (data) => {
+        // Avoid duplicating messages for the sender
+        if (data.sender === username) return;
+        let type = "other";
+        if (data.sender === "System") {
+          type = "system";
+        }
+        appendMessage(data.sender, data.message, type);
+      });
+
+      // Append messages to the chat box
+      function appendMessage(sender, message, type) {
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("chat-message");
+        if (type === "self") {
+          messageDiv.classList.add("self");
+        } else if (type === "system") {
+          messageDiv.classList.add("system", "text-center");
+        } else {
+          messageDiv.classList.add("other");
+        }
+        messageDiv.innerHTML = `<div class="message-content"><strong>${sender}:</strong> ${message}</div>`;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    </script>
+  </body>
+</html>
